@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GapReady</title>
+<style>
+  :root {
+    --bg: #0c0c0c;
+    --panel-solid: #161616;
+    --panel-raised: #1e1e1e;
+    --line: #2b2b2b;
+    --line-soft: #232323;
+    --white: #f2f1ee;
+    --grey: #a8a5a0;
+    --grey-dim: #706e6a;
+    --tag-gap: #4a4844;
+    --tag-project: #38403f;
+    --tag-general: #3a3632;
+  }
+
+  body.light-theme {
+    --bg: #f7f6f4;
+    --panel-solid: #ffffff;
+    --panel-raised: #eeece8;
+    --line: #dedcd6;
+    --line-soft: #e5e3de;
+    --white: #1c1c1c;
+    --grey: #55534f;
+    --grey-dim: #8a8782;
+    --tag-gap: #3d3d3b;
+    --tag-project: #6b6963;
+    --tag-general: #a19d95;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--white);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: 0.3px; }
+  .logo-mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--white); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px;
+  }
+
+  nav { display: flex; align-items: center; gap: 10px; }
+  nav button {
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--grey);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  nav button:hover { color: var(--white); border-color: var(--grey-dim); }
+  #themeToggle {
+    width: 34px;
+    height: 34px;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+
+  .headline {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--grey);
+    min-height: 20px;
+    margin-bottom: 14px;
+  }
+  .headline .cursor { display: inline-block; width: 7px; background: var(--grey); margin-left: 2px; animation: blink 0.9s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .divider {
+    width: 60px; height: 2px; background: var(--grey-dim);
+    margin: 0 auto 44px;
+    opacity: 0.5;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 16px;
+    padding: 46px 20px;
+    text-align: center;
+    background: var(--panel-solid);
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+  }
+  .dropzone:hover, .dropzone.drag-over { border-color: var(--grey); background: var(--panel-raised); }
+
+  .dropzone .cloud { font-size: 30px; color: var(--grey-dim); margin-bottom: 14px; }
+  .dropzone h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+  .dropzone p { margin: 0 0 4px; font-size: 13px; color: var(--grey); }
+  .dropzone .or { font-size: 12px; color: var(--grey-dim); margin: 10px 0; }
+
+  .choose-btn {
+    background: var(--white);
+    color: var(--bg);
+    border: none;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .choose-btn:hover { opacity: 0.85; }
+
+  .file-note { font-size: 11.5px; color: var(--grey-dim); margin-top: 14px; }
+  .file-attached { font-size: 13px; color: var(--white); margin-top: 14px; }
+
+  .jd-panel {
+    margin-top: 20px;
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .jd-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .jd-panel-head h4 { margin: 0; font-size: 14px; }
+  .jd-panel-head p { margin: 2px 0 0; font-size: 12px; color: var(--grey-dim); }
+  .jd-panel-head button {
+    background: none; border: 1px solid var(--line); color: var(--grey);
+    font-size: 12px; padding: 5px 11px; border-radius: 7px; cursor: pointer;
+  }
+  .jd-panel-head button:hover { color: var(--white); border-color: var(--grey-dim); }
+
+  textarea#jdInput {
+    width: 100%;
+    min-height: 110px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 12px 14px;
+    resize: vertical;
+    outline: none;
+  }
+  textarea#jdInput::placeholder { color: var(--grey-dim); }
+  .char-count { text-align: right; font-size: 11px; color: var(--grey-dim); margin-top: 6px; }
+
+  #generateBtn {
+    width: 100%;
+    margin-top: 22px;
+    background: var(--panel-raised);
+    color: var(--white);
+    border: 1px solid var(--line);
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  #generateBtn:hover:not(:disabled) { background: #242424; border-color: var(--grey-dim); }
+  #generateBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--grey-dim);
+    margin-top: 40px;
+  }
+
+  /* ---- results view ---- */
+  #resultsView { display: none; }
+
+  .top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .back-btn { background: none; border: 1px solid var(--line); color: var(--grey); padding: 7px 13px; border-radius: 8px; font-size: 12.5px; cursor: pointer; }
+  .back-btn:hover { color: var(--white); border-color: var(--grey-dim); }
+  .export-btn { background: var(--white); color: var(--bg); border: none; padding: 8px 15px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+
+  .gaps-panel {
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .gaps-panel h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--grey); }
+  .gaps-panel ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--white); }
+  .gaps-panel li { margin-bottom: 4px; }
+
+  .q-card { background: var(--panel-solid); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .q-tags { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .pill { font-size: 11px; padding: 3px 10px; border-radius: 20px; color: var(--white); border: 1px solid var(--line); }
+  .pill.category { background: var(--panel-raised); }
+  .pill.gap { background: var(--tag-gap); }
+  .pill.project { background: var(--tag-project); }
+  .pill.general { background: var(--tag-general); }
+
+  .q-text { font-size: 15px; font-weight: 600; line-height: 1.5; margin-bottom: 10px; }
+  .q-hint, .q-followup { font-size: 13.5px; color: var(--grey); margin-bottom: 10px; line-height: 1.5; }
+  .q-hint { background: var(--bg); border-left: 3px solid var(--grey-dim); padding: 8px 12px; border-radius: 6px; }
+  .q-hint span.label, .q-followup span.label { font-weight: 600; color: var(--white); }
+
+  .answer-btn { font-size: 12.5px; background: none; border: 1px solid var(--line); color: var(--grey); padding: 6px 12px; border-radius: 7px; cursor: pointer; margin-top: 4px; }
+  .answer-btn:hover { color: var(--white); border-color: var(--grey-dim); }
+
+  .sample-answer { display: none; margin-top: 10px; font-size: 13.5px; line-height: 1.6; background: var(--bg); border: 1px dashed var(--line); padding: 10px 12px; border-radius: 6px; color: var(--white); }
+  .sample-answer.loading { color: var(--grey-dim); font-style: italic; }
+
+  @media print {
+    body { background: #ffffff !important; }
+    header, #landingView, #resultsView { display: none !important; }
+    #printArea {
+      display: block !important;
+      background: #ffffff !important; color: #111 !important; padding: 30px;
+    }
+    #printArea h1 { font-size: 20px; margin-bottom: 4px; }
+    #printArea h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #444; margin: 22px 0 8px; }
+    #printArea ul { margin: 0 0 10px; padding-left: 18px; }
+    #printArea .p-card { border: 1px solid #ccc; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; page-break-inside: avoid; }
+    #printArea .p-tag { display: inline-block; font-size: 10px; border: 1px solid #999; border-radius: 10px; padding: 2px 8px; margin-right: 5px; color: #333; }
+    #printArea .p-q { font-weight: 700; font-size: 13.5px; margin: 6px 0; }
+    #printArea .p-hint, #printArea .p-followup { font-size: 12px; color: #333; margin-bottom: 4px; }
+    #printArea .p-label { font-weight: 700; color: #000; }
+  }
+  #printArea { display: none; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    max-width: 540px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 28px 30px;
+    position: relative;
+  }
+  .modal-box h2 { margin: 0 0 14px; font-size: 17px; }
+  .modal-box p { font-size: 13.5px; line-height: 1.65; color: var(--grey); margin: 0 0 12px; }
+  .modal-box p:last-of-type { margin-bottom: 0; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: 1px solid var(--line); color: var(--grey);
+    width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .modal-close:hover { color: var(--white); border-color: var(--grey-dim); }
+
+  /* ---- about feature list ---- */
+  .feature-list { margin-top: 18px; display: flex; flex-direction: column; }
+  .feature {
+    padding: 12px 2px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .feature:last-child { border-bottom: 1px solid var(--line-soft); }
+  .feature-name { font-size: 13.5px; font-weight: 600; color: var(--white); margin-bottom: 3px; }
+  .feature-desc { font-size: 12.5px; color: var(--grey); line-height: 1.55; }
+
+  /* ---- polish ---- */
+  nav button, .choose-btn, .jd-panel-head button, #generateBtn,
+  .back-btn, .export-btn, .answer-btn, .modal-close {
+    transition: color 0.15s, border-color 0.15s, background 0.15s, opacity 0.15s, transform 0.12s;
+  }
+  .choose-btn:active, #generateBtn:active:not(:disabled), .export-btn:active { transform: scale(0.98); }
+
+  body, .dropzone, .jd-panel, textarea#jdInput, .q-card, .gaps-panel, .modal-box {
+    transition: background 0.25s, border-color 0.25s, color 0.25s;
+  }
+
+  textarea#jdInput:focus { border-color: var(--grey-dim); }
+  .dropzone:focus-visible, button:focus-visible, textarea#jdInput:focus-visible {
+    outline: 2px solid var(--grey-dim);
+    outline-offset: 2px;
+  }
+
+  .q-card, .gaps-panel { animation: rise 0.35s ease both; }
+  .q-card:nth-child(3) { animation-delay: 0.05s; }
+  .q-card:nth-child(4) { animation-delay: 0.1s; }
+  .q-card:nth-child(5) { animation-delay: 0.15s; }
+  .q-card:nth-child(6) { animation-delay: 0.2s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--grey-dim);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .q-card, .gaps-panel { animation: none; }
+    .headline .cursor { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-mark">G</div>gapready</div>
+  <nav>
+    <button id="aboutBtn">About</button>
+    <button id="themeToggle" title="Toggle theme">&#9728;</button>
+  </nav>
+</header>
+
+<div class="modal-overlay" id="aboutOverlay">
+  <div class="modal-box">
+    <button class="modal-close" id="aboutClose">&times;</button>
+    <h2>About GapReady</h2>
+    <p>GapReady helps students walk into internship and entry-level interviews already knowing where they'll be tested. Upload your resume, paste the job description you're applying for, and GapReady turns the space between the two into a practice session built just for you.</p>
+    <div class="feature-list">
+      <div class="feature">
+        <div class="feature-name">Finds your gaps</div>
+        <div class="feature-desc">Compares your resume against the job description and pinpoints the exact skills the role asks for that your resume doesn't yet show.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Questions that target them</div>
+        <div class="feature-desc">Each gap becomes an interview question, asked at the difficulty the role actually demands — so nothing catches you off guard on the day.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Grounded in your projects</div>
+        <div class="feature-desc">Extra questions built around the projects on your own resume, the same way a real interviewer would dig into them.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Behavioral rounds covered</div>
+        <div class="feature-desc">Core questions on teamwork, communication, and problem-solving are always included.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Hints and follow-ups</div>
+        <div class="feature-desc">Every question comes with a short hint on what a strong answer covers, plus the follow-up an interviewer would likely ask next.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Practice recall first</div>
+        <div class="feature-desc">Full sample answers appear only when you ask for them, so you try answering yourself before peeking.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-name">Take it with you</div>
+        <div class="feature-desc">Export your full prep sheet as a PDF or a plain text file.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+
+  <div id="landingView">
+    <div class="headline" id="headline"></div>
+    <div class="divider"></div>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload your resume">
+      <div class="cloud">&#8593;</div>
+      <h3>Upload Your Resume</h3>
+      <p>Drag and drop your file here</p>
+      <div class="or">or</div>
+      <button class="choose-btn" id="chooseBtn" type="button">&#8593; Choose File</button>
+      <input type="file" id="resumeFile" accept=".docx" style="display:none">
+      <div class="file-note" id="fileNote">DOCX only &nbsp;&bull;&nbsp; Max 10MB</div>
+    </div>
+
+    <div class="jd-panel">
+      <div class="jd-panel-head">
+        <div>
+          <h4>Job Description</h4>
+          <p>Paste the role you're applying for below</p>
+        </div>
+        <button id="clearBtn">Clear</button>
+      </div>
+      <textarea id="jdInput" maxlength="5000" placeholder="Paste the job description here..."></textarea>
+      <div class="char-count"><span id="charCount">0</span> / 5000 characters</div>
+    </div>
+
+    <button id="generateBtn">&#10022; Analyze My Fit</button>
+
+    <footer>Made by Jamiha Tashfeen &mdash; BSCS15 A</footer>
+  </div>
+
+  <div id="resultsView"></div>
+  <div id="printArea"></div>
+
+</main>
+
+<script>
+const headlineText = "UPLOAD YOUR RESUME AND PASTE A JOB DESCRIPTION TO BEGIN";
+const headlineEl = document.getElementById("headline");
+let hi = 0;
+function typeHeadline() {
+  if (hi <= headlineText.length) {
+    headlineEl.innerHTML = headlineText.slice(0, hi) + '<span class="cursor"></span>';
+    hi++;
+    setTimeout(typeHeadline, 28);
+  }
+}
+typeHeadline();
+
+const themeToggle = document.getElementById("themeToggle");
+themeToggle.addEventListener("click", () => {
+  const light = document.body.classList.toggle("light-theme");
+  themeToggle.innerHTML = light ? "&#9790;" : "&#9728;";
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("aboutOverlay").classList.remove("open");
+});
+
+document.getElementById("aboutBtn").addEventListener("click", () => {
+  document.getElementById("aboutOverlay").classList.add("open");
+});
+document.getElementById("aboutClose").addEventListener("click", () => {
+  document.getElementById("aboutOverlay").classList.remove("open");
+});
+document.getElementById("aboutOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "aboutOverlay") e.target.classList.remove("open");
+});
+
+const dropzone = document.getElementById("dropzone");
+const chooseBtn = document.getElementById("chooseBtn");
+const resumeFile = document.getElementById("resumeFile");
+const fileNote = document.getElementById("fileNote");
+const jdInput = document.getElementById("jdInput");
+const charCount = document.getElementById("charCount");
+const clearBtn = document.getElementById("clearBtn");
+const generateBtn = document.getElementById("generateBtn");
+const landingView = document.getElementById("landingView");
+const resultsView = document.getElementById("resultsView");
+
+chooseBtn.addEventListener("click", (e) => { e.stopPropagation(); resumeFile.click(); });
+dropzone.addEventListener("click", () => resumeFile.click());
+dropzone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); resumeFile.click(); }
+});
+
+// Escape any model-generated text before injecting it into the page,
+// so stray < > characters in questions/hints can't break the layout.
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+["dragover", "dragenter"].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag-over"); })
+);
+["dragleave", "drop"].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag-over"); })
+);
+dropzone.addEventListener("drop", (e) => {
+  if (e.dataTransfer.files.length) {
+    resumeFile.files = e.dataTransfer.files;
+    showFileAttached();
+  }
+});
+resumeFile.addEventListener("change", showFileAttached);
+
+function showFileAttached() {
+  if (resumeFile.files.length) {
+    fileNote.textContent = "Attached: " + resumeFile.files[0].name;
+    fileNote.classList.add("file-attached");
+  }
+}
+
+jdInput.addEventListener("input", () => { charCount.textContent = jdInput.value.length; });
+clearBtn.addEventListener("click", () => { jdInput.value = ""; charCount.textContent = "0"; });
+
+function pillClass(basedOn) {
+  if (basedOn === "gap") return "gap";
+  if (basedOn === "project") return "project";
+  return "general";
+}
+
+function renderResults(data) {
+  landingView.style.display = "none";
+  resultsView.style.display = "block";
+  resultsView.innerHTML = "";
+
+  const topActions = document.createElement("div");
+  topActions.className = "top-actions";
+  topActions.innerHTML = `<button class="back-btn" onclick="goBack()">&larr; Start over</button>
+    <div style="display:flex; gap:8px;">
+      <button class="export-btn" onclick="exportPDF()">Export as PDF</button>
+      <button class="export-btn" onclick="exportResults()">Export as text file</button>
+    </div>`;
+  resultsView.appendChild(topActions);
+
+  if (!data.valid_input) {
+    const box = document.createElement("div");
+    box.className = "gaps-panel";
+    box.innerHTML = `<h3>Input not valid</h3><p style="font-size:13.5px;margin:0;color:var(--white);">${esc(data.error_message) || "Please check your resume and job description and try again."}</p>`;
+    resultsView.appendChild(box);
+    return;
+  }
+
+  if (data.identified_gaps && data.identified_gaps.length) {
+    const gapsPanel = document.createElement("div");
+    gapsPanel.className = "gaps-panel";
+    gapsPanel.innerHTML = `<h3>Gaps identified between your resume and this role</h3>
+      <ul>${data.identified_gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`;
+    resultsView.appendChild(gapsPanel);
+  }
+
+  data.questions.forEach((q, i) => {
+    const card = document.createElement("div");
+    card.className = "q-card";
+    card.innerHTML = `
+      <div class="q-tags">
+        <span class="pill category">${esc(q.category)}</span>
+        <span class="pill ${pillClass(q.based_on)}">${q.based_on === "gap" ? "targets a gap" : q.based_on === "project" ? "based on your project" : "general"}</span>
+      </div>
+      <div class="q-text">${esc(q.question)}</div>
+      <div class="q-hint"><span class="label">What a strong answer covers:</span> ${esc(q.hint)}</div>
+      <div class="q-followup"><span class="label">Likely follow-up:</span> ${esc(q.followup)}</div>
+      <button class="answer-btn" onclick="toggleAnswer(${i}, this)">Show me a sample answer</button>
+      <div class="sample-answer" id="answer-${i}"></div>
+    `;
+    resultsView.appendChild(card);
+  });
+
+  window.currentResults = data;
+}
+
+function goBack() {
+  resultsView.style.display = "none";
+  landingView.style.display = "block";
+}
+
+async function toggleAnswer(index, btn) {
+  const box = document.getElementById(`answer-${index}`);
+  if (box.style.display === "block") {
+    box.style.display = "none";
+    btn.textContent = "Show me a sample answer";
+    return;
+  }
+  box.style.display = "block";
+  btn.textContent = "Hide sample answer";
+
+  if (!box.dataset.loaded) {
+    box.classList.add("loading");
+    box.textContent = "Generating a sample answer...";
+    const q = window.currentResults.questions[index];
+    try {
+      const response = await fetch("/sample-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q.question, hint: q.hint })
+      });
+      const data = await response.json();
+      box.classList.remove("loading");
+      box.textContent = data.answer || "Could not generate a sample answer right now.";
+      box.dataset.loaded = "true";
+    } catch (err) {
+      box.classList.remove("loading");
+      box.textContent = "Could not reach the server for a sample answer.";
+    }
+  }
+}
+
+function exportPDF() {
+  if (!window.currentResults) return;
+  const data = window.currentResults;
+  const printArea = document.getElementById("printArea");
+
+  let html = `<h1>GapReady — Interview Prep Output</h1>`;
+
+  if (data.identified_gaps && data.identified_gaps.length) {
+    html += `<h2>Gaps identified between your resume and this role</h2><ul>`;
+    data.identified_gaps.forEach(g => html += `<li>${esc(g)}</li>`);
+    html += `</ul>`;
+  }
+
+  html += `<h2>Questions</h2>`;
+  data.questions.forEach((q, i) => {
+    html += `<div class="p-card">
+      <span class="p-tag">${esc(q.category)}</span>
+      <span class="p-tag">${q.based_on === "gap" ? "targets a gap" : q.based_on === "project" ? "based on your project" : "general"}</span>
+      <div class="p-q">${i + 1}. ${esc(q.question)}</div>
+      <div class="p-hint"><span class="p-label">What a strong answer covers:</span> ${esc(q.hint)}</div>
+      <div class="p-followup"><span class="p-label">Likely follow-up:</span> ${esc(q.followup)}</div>
+    </div>`;
+  });
+
+  printArea.innerHTML = html;
+  window.print();
+}
+
+function exportResults() {
+  if (!window.currentResults) return;
+  const data = window.currentResults;
+  let text = "GAPREADY — INTERVIEW PREP OUTPUT\n=================================\n\n";
+  text += "GAPS IDENTIFIED:\n";
+  (data.identified_gaps || []).forEach(g => text += "- " + g + "\n");
+  text += "\nQUESTIONS:\n\n";
+  data.questions.forEach((q, i) => {
+    text += `${i + 1}. [${q.category.toUpperCase()} — ${q.based_on}]\n`;
+    text += `Q: ${q.question}\nHint: ${q.hint}\nFollow-up: ${q.followup}\n\n`;
+  });
+  const blob = new Blob([text], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "gapready_interview_prep.txt";
+  a.click();
+}
+
+generateBtn.addEventListener("click", async () => {
+  if (!resumeFile.files.length) { fileNote.textContent = "Please attach a resume first."; return; }
+  const jobDescription = jdInput.value.trim();
+  if (!jobDescription) { alert("Please paste a job description first."); return; }
+
+  generateBtn.disabled = true;
+  generateBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+  const formData = new FormData();
+  formData.append("resume", resumeFile.files[0]);
+  formData.append("job_description", jobDescription);
+
+  try {
+    const response = await fetch("/generate-questions", { method: "POST", body: formData });
+    const data = await response.json();
+    if (data.error) {
+      alert("Error: " + data.error);
+    } else {
+      renderResults(data.result);
+    }
+  } catch (err) {
+    alert("Could not reach the server. Make sure app.py is running. (" + err.message + ")");
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = "&#10022; Analyze My Fit";
+  }
+});
+</script>
+
+</body>
+</html>
