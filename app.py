@@ -26,7 +26,7 @@ from nlp_analysis import analyze, cluster_gaps
 # FIX 1: read the key from an environment variable instead of hardcoding it.
 # Before running:  set GROQ_API_KEY=your_new_key   (Windows CMD)
 #             or:  $env:GROQ_API_KEY="your_new_key" (PowerShell)
-API_KEY = os.environ.get("interview_qs_groq_key")
+API_KEY = os.environ.get("Interview_qs_groq_key")
 if not API_KEY:
     raise RuntimeError(
         "interview_qs_groq_key environment variable is not set. "
