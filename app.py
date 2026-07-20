@@ -15,11 +15,13 @@ FIXES APPLIED IN THIS VERSION:
 
 import json
 import os
+import re
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from groq import Groq
 from docx import Document
+from nlp_analysis import analyze, cluster_gaps
 
 # FIX 1: read the key from an environment variable instead of hardcoding it.
 # Before running:  set GROQ_API_KEY=your_new_key   (Windows CMD)
@@ -71,9 +73,25 @@ Text that is merely TECHNICAL in nature does NOT qualify — code review feedbac
 
 If EITHER the resume fails its structural/breadth check above OR the job description fails its check, stop here and output only the JSON with "valid_input": false and a clear error_message explaining specifically which input was the problem and why. Do not proceed to Step 2 or Step 3. Never fabricate or assume a person's project/work experience from a document that is not actually their resume, and never invent job requirements from text that is not actually a job description.
 
-STEP 2 — GAP IDENTIFICATION (mandatory, done explicitly, before any questions are written):
-Carefully re-read the job/internship description line by line. For EACH distinct skill, tool, or requirement mentioned in the job description, check whether it is clearly demonstrated in the resume. Build an explicit list of every requirement from the JD that is NOT clearly evidenced in the resume — these are "gaps." You must identify at least one gap if any genuinely exist in the JD versus the resume; do not skip this step or fold it silently into question-writing. This list will be included directly in your output, so it must be real and specific — not vague.
-Every identified gap MUST correspond to a requirement explicitly stated in the job description text — for each gap, you must be able to point to the exact line in the JD it came from. Never generate gaps from general knowledge of what similar roles usually require. If you cannot ground a single gap in the JD's actual text, treat the job description as invalid and return "valid_input": false instead of proceeding.
+CRITICAL — MISMATCH IS NOT INVALIDITY: Validation checks each input's STRUCTURE independently. It does NOT compare the resume and job description to each other. A structurally valid resume + a structurally valid job description from a completely different field (e.g. a computer science resume with a finance, marketing, or nursing internship posting) is a VALID input pair — students legitimately apply across fields, and analyzing a poor fit is exactly this tool's purpose. In such cases you MUST proceed to Step 2 and beyond; the mismatch will naturally appear as a low match and many gaps. Never set "valid_input": false because the two inputs belong to different fields, and never ask the user to make the job description "match" the resume.
+
+STEP 2 — GAP VERIFICATION (mandatory, done explicitly, before any questions are written):
+You will be given a CANDIDATE GAPS list — terms from the job description that a statistical word-matching analysis could not find in the resume. This list is intentionally over-inclusive: it contains real gaps, but also noise (sentence fragments like "version" or "control" that are not skills) and false positives (skills the resume DOES demonstrate but under different wording — e.g. the candidate list may contain "backend" while the resume shows Flask REST API work, which IS backend development).
+
+Your job is to VERIFY each candidate:
+1. Discard items that are not real skills or requirements (fragments, generic words).
+2. Discard items the resume clearly demonstrates under different wording — re-read the resume carefully for semantic evidence before keeping any item.
+3. Merge related fragments into one properly-named gap where appropriate (e.g. "docker" + "containerization" become one gap: "Containerization with Docker").
+4. Keep only genuine gaps: requirements explicitly stated in the job description text with no evidence in the resume.
+
+You must also report your classifications — this is used to compute an accurate match score, so be precise:
+- Every candidate term you discarded because the resume DOES demonstrate it under different wording (rule 2) goes into a "dismissed_candidates" list, copied as the term appeared in the candidate list.
+- Every candidate term you discarded because it is NOT a real skill or requirement at all (rule 1 — sentence fragments, generic words like "startup" or "practical") goes into a "noise_terms" list, copied as the term appeared in the candidate list.
+Every candidate term must end up in exactly one place: dismissed_candidates (covered), noise_terms (not a requirement), or reflected in identified_gaps (genuine gap). Do not silently drop any candidate. Never put the same term in more than one list. dismissed_candidates is ONLY for genuine skills/requirements that the resume clearly demonstrates — generic words, fragments, and filler (e.g. "startup", "site", "practical", "user", "improve") are ALWAYS noise_terms, never dismissed_candidates. When unsure whether a term is a covered skill or noise, classify it as noise — never award coverage without clear resume evidence. Candidate terms that correspond to your identified_gaps (even after rewording or merging) must NOT appear in noise_terms or dismissed_candidates — they are already accounted for as gaps.
+
+Every gap in your final identified_gaps list MUST correspond to a requirement explicitly stated in the job description text. Never invent gaps from general knowledge of what similar roles usually require. If, after verification, no genuine gaps remain, output an empty identified_gaps list and skip gap questions (3a) entirely — do not manufacture gaps to fill space.
+
+You must ALSO produce a "covered_requirements" list: the distinct skills/requirements explicitly stated in the job description that the resume DOES clearly demonstrate (under any wording). Phrase each the same way you phrase gaps — short named requirements, not raw words. Together, covered_requirements + identified_gaps must account for every distinct real requirement in the job description: each requirement appears in exactly one of the two lists. The match score shown to the student is computed directly as covered ÷ (covered + gaps), so missing or duplicated requirements will distort their score — be complete and precise.
 
 STEP 3 — QUESTION GENERATION (only after Steps 1 and 2 are complete):
 Generate questions in this exact order:
@@ -105,6 +123,9 @@ OUTPUT FORMAT: Respond ONLY in the following JSON structure, with no extra comme
   "valid_input": true or false,
   "error_message": "string, only present if valid_input is false",
   "identified_gaps": ["string", "string", ...],
+  "covered_requirements": ["string", ...],
+  "dismissed_candidates": ["string", ...],
+  "noise_terms": ["string", ...],
   "questions": [
     {
       "category": "technical" or "behavioral",
@@ -167,13 +188,21 @@ def generate_questions():
     if len(resume_text) > MAX_RESUME_CHARS:
         resume_text = resume_text[:MAX_RESUME_CHARS] + "\n[NOTE: text truncated here — original document was much longer]"
 
-    # 3. Build the user message and call Groq
+    # 3. NLP layer: compute coverage score, similarity, and candidate gaps.
+    # This is pure local math (no API call, costs nothing) and runs BEFORE Groq.
+    nlp = analyze(resume_text, job_description)
+
+    # 4. Build the user message and call Groq — now with a third block:
+    # the candidate gap list for the LLM to verify (see Step 2 of the prompt).
     user_message = f"""
 RESUME:
 {resume_text}
 
 JOB DESCRIPTION:
 {job_description}
+
+CANDIDATE GAPS (from statistical analysis — verify each one against the resume):
+{nlp["candidate_gaps"]}
 """
 
     try:
@@ -199,7 +228,148 @@ JOB DESCRIPTION:
     except (json.JSONDecodeError, TypeError):
         return jsonify({"error": "The AI returned an unreadable response. Please try again."}), 502
 
-    return jsonify({"result": parsed})
+    # 4b. ENFORCE the one-question-per-gap rule in code (the prompt asks for it,
+    # but LLMs occasionally ignore their own self-check). Instead of calling
+    # Groq a second time (costs double tokens), we just trim silently so the
+    # counts always match what the user sees.
+    def gap_question_count(p):
+        return sum(1 for q in p.get("questions", []) if q.get("based_on") == "gap")
+
+    if parsed.get("valid_input") and len(parsed.get("identified_gaps", [])) != gap_question_count(parsed):
+        print(f"DEBUG mismatch: {len(parsed.get('identified_gaps', []))} gaps vs "
+              f"{gap_question_count(parsed)} gap questions — trimming (no retry, saves tokens)")
+        parsed["identified_gaps"] = parsed.get("identified_gaps", [])[:gap_question_count(parsed)]
+
+    # 5. MATCH SCORE — requirement-level (final design).
+    # score = covered requirements / (covered + missing requirements)
+    # This makes the score and the gaps panel two views of the SAME lists,
+    # so they can never contradict each other again.
+    n_covered = len(parsed.get("covered_requirements", []) or [])
+    n_gaps = len(parsed.get("identified_gaps", []) or [])
+
+    if n_covered + n_gaps > 0:
+        verified_score = round((n_covered / (n_covered + n_gaps)) * 100, 1)
+    else:
+        # Fallback (LLM sent no requirement lists): word-level verified score,
+        # same math as the previous version.
+        word_matched = len(nlp["covered_terms"])
+        total_terms = word_matched + len(nlp["candidate_gaps"])
+
+        def words_of(items):
+            text = " ".join(str(t).lower() for t in (items or []))
+            return set(re.findall(r"[a-z0-9\+\#\.]+", text))
+
+        dismissed_words = words_of(parsed.get("dismissed_candidates"))
+        noise_words = words_of(parsed.get("noise_terms"))
+        gap_words = words_of(parsed.get("identified_gaps"))
+
+        dismissed = [t for t in nlp["candidate_gaps"]
+                     if t.lower() in dismissed_words and t.lower() not in gap_words]
+        noise = [t for t in nlp["candidate_gaps"]
+                 if t.lower() in noise_words
+                 and t.lower() not in dismissed_words
+                 and t.lower() not in gap_words]
+
+        effective_total = total_terms - len(noise)
+        if effective_total > 0:
+            verified_score = round(((word_matched + len(dismissed)) / effective_total) * 100, 1)
+            verified_score = min(verified_score, 100.0)
+        else:
+            verified_score = 0
+
+    print(f"DEBUG score: covered_reqs={n_covered} gaps={n_gaps} score={verified_score}")
+
+    # 6. K-Means: group the final gaps into related categories for display.
+    # Local math only, no API cost. Returns None for short lists (frontend
+    # then shows the flat list exactly as before).
+    gap_groups = cluster_gaps(parsed.get("identified_gaps", []))
+
+    return jsonify({
+        "result": parsed,
+        "gap_groups": gap_groups,                   # K-Means clusters (or null)
+        "coverage_score": verified_score,           # headline: word matches + semantic matches
+        "keyword_score": nlp["coverage_score"],     # small print: exact-word matches only
+        "similarity": nlp["similarity"],            # small print: overall text overlap
+    })
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    """Internship support chatbot. Receives the conversation history AND an
+    optional summary of the user's latest GapReady analysis (score, gaps,
+    covered skills) so it can give specific advice instead of generic tips."""
+    data = request.get_json(silent=True) or {}
+    history = data.get("messages", [])
+    context = data.get("context") or {}
+
+    # Basic shape check: history must be a list of {role, content} dicts.
+    if not isinstance(history, list) or not history:
+        return jsonify({"error": "No message provided"}), 400
+
+    # Keep only the fields we expect, cap history length to control tokens.
+    clean_history = []
+    for m in history[-12:]:                     # last 12 turns is plenty of context
+        role = m.get("role")
+        content = str(m.get("content", ""))[:2000]   # cap each message's size
+        if role in ("user", "assistant") and content.strip():
+            clean_history.append({"role": role, "content": content})
+
+    # Build a short, safe summary of the user's latest analysis — NOT the
+    # full resume text (privacy + token cost). Only score/gaps/covered.
+    context_block = ""
+    if context.get("coverage_score") is not None:
+        gaps = context.get("gaps", [])[:15]       # cap length, keep tokens low
+        covered = context.get("covered", [])[:15]
+        context_block = f"""
+
+THE STUDENT'S LATEST GAPREADY RESULTS (use this if their question relates to it):
+Match score: {context.get('coverage_score')}%
+Skills the resume covers for this role: {covered}
+Skills missing for this role: {gaps}
+"""
+
+    chat_system_prompt = """
+You are GapBot, GapReady's built-in support assistant. GapReady is a web tool where
+students upload their resume and a job description, and receive: a match score, a
+list of skill gaps, and tailored interview questions with hints and sample answers.
+
+Your job is to help students with:
+- Interview preparation advice (how to answer question types, STAR method, common mistakes)
+- Understanding and acting on their GapReady results (what a gap means, how to close one,
+  how to talk about a missing skill honestly in an interview)
+- Internship application guidance (resumes, cover letters, follow-up etiquette)
+- Explaining technical terms that appear in job descriptions or interview questions
+- How to use the GapReady tool itself
+
+If a "LATEST GAPREADY RESULTS" block is provided below, you may reference the student's
+actual score/gaps/covered skills by name to give specific advice. You do NOT have their
+full resume — only this summary. Never invent details beyond what's given.
+
+FORMATTING RULES (important):
+- Prefer short bullet points or a few short headed sections over one long paragraph.
+- Keep language simple and direct — this is a first-year student, not a formal essay.
+- Only use a plain short paragraph for very simple one-line answers; use structure
+  (bullets/headings) whenever the answer has more than one part or step.
+- Never pad with filler sentences. Every line should say something useful.
+
+Rules:
+- Stay on topic. If asked something unrelated to internships, careers, interviews, or
+  GapReady (e.g. write my homework, general coding tasks, politics), politely decline in
+  one sentence and steer back to interview/internship help.
+- Be encouraging but honest — no empty hype.
+""" + context_block
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": chat_system_prompt}] + clean_history,
+            temperature=0.6,
+            max_tokens=380,           # kept modest to protect the daily token budget
+        )
+    except Exception as e:
+        return jsonify({"error": f"The chat service is unavailable right now. Details: {str(e)}"}), 500
+
+    return jsonify({"reply": response.choices[0].message.content})
 
 
 @app.route("/sample-answer", methods=["POST"])

@@ -81,29 +81,73 @@
   }
 
   main {
-    max-width: 720px;
+    max-width: 960px;
     margin: 0 auto;
-    padding: 60px 20px 80px;
+    padding: 60px 40px 80px;
+    transition: max-width 0.32s ease, padding-right 0.32s ease;
   }
 
-  .headline {
-    text-align: center;
+  /* When the chat panel is open, give the page room instead of the chat
+     just floating on top with the content staying put and squashed. */
+  body.chat-open main {
+    max-width: 960px;
+    margin: 0 0 0 auto;
+    margin-right: 400px;
+  }
+  @media (max-width: 1400px) {
+    body.chat-open main { max-width: calc(100vw - 460px); }
+  }
+  @media (max-width: 900px) {
+    body.chat-open main { margin-right: 0; max-width: 960px; }
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 700px) {
+    .hero { grid-template-columns: 1fr; }
+  }
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--grey);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 5px 12px;
+    margin-bottom: 16px;
+  }
+  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--white); }
+  .hero-title {
+    margin: 0 0 12px;
+    font-size: 27px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.5px;
+  }
+  .hero-title .accent { color: var(--grey-dim); }
+  .hero-sub { margin: 0; font-size: 13.5px; color: var(--grey); line-height: 1.6; }
+
+  .nav-link { background: none !important; border: none !important; }
+  #getStartedBtn {
+    background: var(--white);
+    color: var(--bg);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
     font-size: 13px;
     font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--grey);
-    min-height: 20px;
-    margin-bottom: 14px;
+    cursor: pointer;
   }
-  .headline .cursor { display: inline-block; width: 7px; background: var(--grey); margin-left: 2px; animation: blink 0.9s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-
-  .divider {
-    width: 60px; height: 2px; background: var(--grey-dim);
-    margin: 0 auto 44px;
-    opacity: 0.5;
-  }
+  #getStartedBtn:hover { opacity: 0.85; }
+  .jd-tip { font-size: 11.5px; color: var(--grey-dim); margin-top: 8px; }
 
   .dropzone {
     border: 1.5px dashed var(--line);
@@ -202,6 +246,34 @@
   .back-btn:hover { color: var(--white); border-color: var(--grey-dim); }
   .export-btn { background: var(--white); color: var(--bg); border: none; padding: 8px 15px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 
+  .score-panel {
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    animation: rise 0.35s ease both;
+  }
+  .score-panel h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--grey); }
+  .score-row { display: flex; align-items: center; gap: 16px; }
+  .score-number { font-size: 34px; font-weight: 700; color: var(--white); line-height: 1; min-width: 90px; }
+  .score-detail { flex: 1; }
+  .score-bar {
+    height: 8px;
+    background: var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: var(--white);
+    border-radius: 4px;
+    transition: width 0.8s ease;
+  }
+  .score-caption { font-size: 12.5px; color: var(--grey); }
+  .score-secondary { margin-top: 10px; font-size: 12px; color: var(--grey-dim); }
+
   .gaps-panel {
     background: var(--panel-solid);
     border: 1px solid var(--line);
@@ -212,6 +284,16 @@
   .gaps-panel h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--grey); }
   .gaps-panel ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--white); }
   .gaps-panel li { margin-bottom: 4px; }
+  .gap-group-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--grey-dim);
+    margin: 12px 0 6px;
+  }
+  .gap-group-label:first-of-type { margin-top: 2px; }
+  .gaps-panel ul { margin-bottom: 4px; }
 
   .q-card { background: var(--panel-solid); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
   .q-tags { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -329,6 +411,215 @@
     .q-card, .gaps-panel { animation: none; }
     .headline .cursor { animation: none; }
   }
+
+  /* ---- chat widget (GapBot) ---- */
+  .chat-tooltip {
+    position: fixed;
+    bottom: 34px; right: 88px;
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--grey);
+    font-size: 12.5px;
+    padding: 9px 14px;
+    border-radius: 12px;
+    border-bottom-right-radius: 4px;
+    z-index: 59;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  .chat-tooltip.show { opacity: 1; transform: none; }
+  .chat-tooltip strong { color: var(--white); }
+
+  #chatToggle {
+    position: fixed;
+    bottom: 22px; right: 22px;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: var(--white);
+    color: var(--bg);
+    border: none;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+    z-index: 60;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  #chatToggle:hover { transform: scale(1.06); }
+
+  #chatPanel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 370px;
+    max-width: 92vw;
+    height: 100vh;
+    background: var(--panel-solid);
+    border-left: 1px solid var(--line);
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 30px rgba(0,0,0,0.4);
+    transform: translateX(105%);
+    transition: transform 0.32s ease;
+  }
+  #chatPanel.open { transform: translateX(0); }
+
+  .chat-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .chat-head-id { display: flex; align-items: center; gap: 10px; }
+  .chat-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+  }
+  .chat-name { font-size: 14.5px; font-weight: 700; }
+  .chat-sub { font-size: 11.5px; color: var(--grey-dim); display: flex; align-items: center; gap: 5px; }
+  .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #4caf7d; display: inline-block; }
+  .chat-head button {
+    background: none; border: none; color: var(--grey);
+    font-size: 20px; cursor: pointer; padding: 0 4px;
+  }
+  .chat-head button:hover { color: var(--white); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .chat-msg {
+    max-width: 88%;
+    padding: 9px 13px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .chat-msg.user {
+    align-self: flex-end;
+    background: var(--white);
+    color: var(--bg);
+    border-bottom-right-radius: 4px;
+  }
+  .chat-msg.bot {
+    align-self: flex-start;
+    background: var(--panel-raised);
+    color: var(--white);
+    border: 1px solid var(--line-soft);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-msg.bot.typing { color: var(--grey-dim); font-style: italic; }
+
+  .chat-intro { display: flex; flex-direction: column; gap: 8px; }
+  .chat-intro-label { font-size: 11.5px; color: var(--grey-dim); margin: 4px 0 2px; }
+  .topic-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    text-align: left;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .topic-card:hover { border-color: var(--grey-dim); }
+  .topic-title { font-size: 13px; font-weight: 600; color: var(--white); }
+  .topic-desc { font-size: 11.5px; color: var(--grey-dim); }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--grey);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .chip:hover { color: var(--white); border-color: var(--grey-dim); }
+
+  .chat-input-row {
+    display: flex; gap: 8px;
+    padding: 10px 12px 6px;
+    border-top: 1px solid var(--line-soft);
+  }
+  #chatInput {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 11px;
+    outline: none;
+  }
+  #chatInput:focus { border-color: var(--grey-dim); }
+  #chatSend {
+    background: var(--white);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #chatSend:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-disclaimer {
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--grey-dim);
+    padding: 4px 12px 10px;
+  }
+
+  #chatToggle { display: flex; align-items: center; justify-content: center; position: fixed; bottom: 22px; right: 22px; width: 58px; height: 58px; border-radius: 50%; background: var(--white); border: none; cursor: pointer; z-index: 60; box-shadow: 0 0 0 6px rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.15s; }
+  #chatToggle:hover { transform: scale(1.07); }
+  .bot-face { display: flex; align-items: center; justify-content: center; }
+
+  .chat-welcome { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 6px 20px; }
+  .welcome-bot {
+    width: 74px; height: 74px;
+    border-radius: 50%;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+    box-shadow: 0 0 0 8px rgba(255,255,255,0.03);
+  }
+  .welcome-hi { font-size: 17px; margin-bottom: 2px; }
+  .welcome-name { font-size: 20px; font-weight: 800; }
+  .welcome-name span { color: var(--white); }
+  .welcome-role { font-size: 12.5px; color: var(--grey); margin: 2px 0 8px; }
+  .welcome-desc { font-size: 12.5px; color: var(--grey-dim); line-height: 1.6; margin: 0; max-width: 280px; }
+
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+  .card-grid .topic-card {
+    position: relative;
+    padding: 12px 12px 11px;
+    gap: 3px;
+  }
+  .topic-icon { font-size: 15px; margin-bottom: 2px; }
+  .card-grid .topic-title { font-size: 12.5px; line-height: 1.3; }
+  .card-grid .topic-desc { font-size: 10.5px; line-height: 1.4; }
+  .topic-arrow { position: absolute; top: 10px; right: 10px; color: var(--grey-dim); font-size: 15px; }
 </style>
 </head>
 <body>
@@ -336,7 +627,9 @@
 <header>
   <div class="logo"><div class="logo-mark">G</div>gapready</div>
   <nav>
-    <button id="aboutBtn">About</button>
+    <button class="nav-link" id="navHome">Home</button>
+    <button class="nav-link" id="aboutBtn">About</button>
+    <button id="getStartedBtn">Get Started</button>
     <button id="themeToggle" title="Toggle theme">&#9728;</button>
   </nav>
 </header>
@@ -382,17 +675,23 @@
 <main>
 
   <div id="landingView">
-    <div class="headline" id="headline"></div>
-    <div class="divider"></div>
 
-    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload your resume">
-      <div class="cloud">&#8593;</div>
-      <h3>Upload Your Resume</h3>
-      <p>Drag and drop your file here</p>
-      <div class="or">or</div>
-      <button class="choose-btn" id="chooseBtn" type="button">&#8593; Choose File</button>
-      <input type="file" id="resumeFile" accept=".docx" style="display:none">
-      <div class="file-note" id="fileNote">DOCX only &nbsp;&bull;&nbsp; Max 10MB</div>
+    <div class="hero">
+      <div class="hero-left">
+        <div class="step-badge"><span class="step-dot"></span> AI POWERED ANALYSIS</div>
+        <h1 class="hero-title">UPLOAD YOUR RESUME AND PASTE A <span class="accent">JOB DESCRIPTION</span> TO BEGIN</h1>
+        <p class="hero-sub">Get an AI powered analysis of your resume and match it with the internship or job you want.</p>
+      </div>
+
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload your resume">
+        <div class="cloud">&#8593;</div>
+        <h3>Upload Your Resume</h3>
+        <p>Drag and drop your file here</p>
+        <div class="or">or</div>
+        <button class="choose-btn" id="chooseBtn" type="button">&#8593; Choose File</button>
+        <input type="file" id="resumeFile" accept=".docx" style="display:none">
+        <div class="file-note" id="fileNote">DOCX only &nbsp;&bull;&nbsp; Max 10MB</div>
+      </div>
     </div>
 
     <div class="jd-panel">
@@ -405,6 +704,7 @@
       </div>
       <textarea id="jdInput" maxlength="5000" placeholder="Paste the job description here..."></textarea>
       <div class="char-count"><span id="charCount">0</span> / 5000 characters</div>
+      <div class="jd-tip">Tip: include as much detail as possible for better analysis.</div>
     </div>
 
     <button id="generateBtn">&#10022; Analyze My Fit</button>
@@ -417,18 +717,128 @@
 
 </main>
 
+<div class="chat-tooltip" id="chatTooltip">Need help? <strong>Chat with GapBot</strong> &#10024;</div>
+<button id="chatToggle" title="Chat with GapBot" aria-label="Open GapBot chat">
+  <span class="bot-face">
+    <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+      <rect x="7" y="10" width="26" height="22" rx="9" fill="var(--bg)"/>
+      <line x1="20" y1="5" x2="20" y2="10" stroke="var(--bg)" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="20" cy="4" r="2.2" fill="var(--bg)"/>
+      <circle cx="14.5" cy="20" r="2.8" fill="var(--white)"/>
+      <circle cx="25.5" cy="20" r="2.8" fill="var(--white)"/>
+      <path d="M15 26 Q20 29.5 25 26" stroke="var(--white)" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+  </span>
+</button>
+
+<div id="chatPanel">
+  <div class="chat-head">
+    <div class="chat-head-id">
+      <div class="chat-avatar">
+        <svg viewBox="0 0 40 40" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+          <rect x="7" y="10" width="26" height="22" rx="9" fill="var(--white)"/>
+          <line x1="20" y1="5" x2="20" y2="10" stroke="var(--white)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="20" cy="4" r="2.2" fill="var(--white)"/>
+          <circle cx="14.5" cy="20" r="2.8" fill="var(--bg)"/>
+          <circle cx="25.5" cy="20" r="2.8" fill="var(--bg)"/>
+          <path d="M15 26 Q20 29.5 25 26" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="chat-name">GapBot &#10024;</div>
+        <div class="chat-sub"><span class="online-dot"></span> AI Interview Coach</div>
+      </div>
+    </div>
+    <button id="chatClose" aria-label="Close chat">&times;</button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+
+    <div class="chat-intro" id="chatIntro">
+      <div class="chat-welcome">
+        <div class="welcome-bot">
+          <svg viewBox="0 0 40 40" width="54" height="54" xmlns="http://www.w3.org/2000/svg">
+            <rect x="7" y="10" width="26" height="22" rx="9" fill="var(--white)"/>
+            <line x1="20" y1="5" x2="20" y2="10" stroke="var(--white)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="20" cy="4" r="2.2" fill="var(--white)"/>
+            <circle cx="14.5" cy="20" r="2.8" fill="var(--bg)"/>
+            <circle cx="25.5" cy="20" r="2.8" fill="var(--bg)"/>
+            <path d="M15 26 Q20 29.5 25 26" stroke="var(--bg)" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="welcome-text">
+          <div class="welcome-hi">Hi there! &#128075;</div>
+          <div class="welcome-name">I'm <span>GapBot</span></div>
+          <div class="welcome-role">Your AI Interview Coach.</div>
+          <p class="welcome-desc">I can help you prepare for interviews, understand your gaps, and land your dream internship.</p>
+        </div>
+      </div>
+
+      <div class="chat-intro-label">How can I help you today?</div>
+      <div class="card-grid">
+        <button class="topic-card" data-prompt="How can I make my resume stronger for internship applications?">
+          <span class="topic-icon">&#128221;</span>
+          <span class="topic-title">Improve<br>my resume</span>
+          <span class="topic-desc">Get suggestions to make it stronger</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+        <button class="topic-card" data-prompt="GapReady gave me a match score and a list of skill gaps. Can you explain what these results mean and how to use them?">
+          <span class="topic-icon">&#128202;</span>
+          <span class="topic-title">Explain<br>my analysis</span>
+          <span class="topic-desc">Understand your score &amp; gaps</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+        <button class="topic-card" data-prompt="GapReady showed some skill gaps between my resume and a job description. How should I handle a skill gap honestly in an interview?">
+          <span class="topic-icon">&#129513;</span>
+          <span class="topic-title">Handle<br>my gaps</span>
+          <span class="topic-desc">Talk about missing skills honestly</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+        <button class="topic-card" data-prompt="How do I answer behavioral interview questions well? Explain the STAR method simply.">
+          <span class="topic-icon">&#128172;</span>
+          <span class="topic-title">Behavioral<br>questions</span>
+          <span class="topic-desc">STAR method, made simple</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+        <button class="topic-card" data-prompt="How should I prepare for an internship interview? Give me a short practical plan.">
+          <span class="topic-icon">&#127919;</span>
+          <span class="topic-title">Practice<br>interview</span>
+          <span class="topic-desc">Get a short prep plan</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+        <button class="topic-card" data-prompt="I have a general question about internships and careers.">
+          <span class="topic-icon">&#10067;</span>
+          <span class="topic-title">General<br>questions</span>
+          <span class="topic-desc">Ask me anything career related</span>
+          <span class="topic-arrow">&#8250;</span>
+        </button>
+      </div>
+
+      <div class="chat-intro-label">Popular prompts</div>
+      <div class="chip-row">
+        <button class="chip" data-prompt="Give me 3 common internship interview questions and how to answer them.">Common questions</button>
+        <button class="chip" data-prompt="What mistakes do students make in interviews?">Common mistakes</button>
+        <button class="chip" data-prompt="How do I introduce myself in an interview?">Intro yourself</button>
+        <button class="chip" data-prompt="How do I follow up after an interview?">Follow up</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Type your message..." maxlength="500">
+    <button id="chatSend" aria-label="Send">&#10148;</button>
+  </div>
+  <div class="chat-disclaimer">GapBot can make mistakes. Please verify important info.</div>
+</div>
+
 <script>
-const headlineText = "UPLOAD YOUR RESUME AND PASTE A JOB DESCRIPTION TO BEGIN";
-const headlineEl = document.getElementById("headline");
-let hi = 0;
-function typeHeadline() {
-  if (hi <= headlineText.length) {
-    headlineEl.innerHTML = headlineText.slice(0, hi) + '<span class="cursor"></span>';
-    hi++;
-    setTimeout(typeHeadline, 28);
-  }
-}
-typeHeadline();
+// ---- header nav ----
+document.getElementById("navHome").addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+document.getElementById("getStartedBtn").addEventListener("click", () => {
+  document.getElementById("dropzone").scrollIntoView({ behavior: "smooth", block: "center" });
+});
 
 const themeToggle = document.getElementById("themeToggle");
 themeToggle.addEventListener("click", () => {
@@ -507,7 +917,7 @@ function pillClass(basedOn) {
   return "general";
 }
 
-function renderResults(data) {
+function renderResults(data, coverageScore, similarity, keywordScore, gapGroups) {
   landingView.style.display = "none";
   resultsView.style.display = "block";
   resultsView.innerHTML = "";
@@ -529,11 +939,37 @@ function renderResults(data) {
     return;
   }
 
+  // Match score panel — only shown when the backend sent a score
+  if (typeof coverageScore === "number") {
+    const scorePanel = document.createElement("div");
+    scorePanel.className = "score-panel";
+    scorePanel.innerHTML = `
+      <h3>Resume &ndash; role match</h3>
+      <div class="score-row">
+        <div class="score-number">${coverageScore}%</div>
+        <div class="score-detail">
+          <div class="score-bar"><div class="score-bar-fill" style="width:${Math.min(coverageScore, 100)}%"></div></div>
+          <div class="score-caption">of this role's requirements are reflected in your resume</div>
+        </div>
+      </div>`;
+    resultsView.appendChild(scorePanel);
+  }
+
   if (data.identified_gaps && data.identified_gaps.length) {
     const gapsPanel = document.createElement("div");
     gapsPanel.className = "gaps-panel";
-    gapsPanel.innerHTML = `<h3>Gaps identified between your resume and this role</h3>
-      <ul>${data.identified_gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`;
+    let gapsHtml = `<h3>Gaps identified between your resume and this role</h3>`;
+    if (gapGroups && gapGroups.length > 1) {
+      // K-Means grouping available — render gaps under category headings
+      gapGroups.forEach(group => {
+        gapsHtml += `<div class="gap-group-label">${esc(group.label)}</div>
+          <ul>${group.items.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`;
+      });
+    } else {
+      // few gaps or clustering not useful — same flat list as always
+      gapsHtml += `<ul>${data.identified_gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`;
+    }
+    gapsPanel.innerHTML = gapsHtml;
     resultsView.appendChild(gapsPanel);
   }
 
@@ -555,6 +991,12 @@ function renderResults(data) {
   });
 
   window.currentResults = data;
+  // Small summary for GapBot — NOT the full resume, just score/gaps/covered.
+  window.currentAnalysisSummary = {
+    coverage_score: coverageScore,
+    gaps: data.identified_gaps || [],
+    covered: data.covered_requirements || [],
+  };
 }
 
 function goBack() {
@@ -657,7 +1099,7 @@ generateBtn.addEventListener("click", async () => {
     if (data.error) {
       alert("Error: " + data.error);
     } else {
-      renderResults(data.result);
+      renderResults(data.result, data.coverage_score, data.similarity, data.keyword_score, data.gap_groups);
     }
   } catch (err) {
     alert("Could not reach the server. Make sure app.py is running. (" + err.message + ")");
@@ -665,6 +1107,107 @@ generateBtn.addEventListener("click", async () => {
     generateBtn.disabled = false;
     generateBtn.innerHTML = "&#10022; Analyze My Fit";
   }
+});
+// ---- chat widget (GapBot) ----
+const chatToggle = document.getElementById("chatToggle");
+const chatPanel = document.getElementById("chatPanel");
+const chatClose = document.getElementById("chatClose");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const chatTooltip = document.getElementById("chatTooltip");
+
+// The conversation so far. LLMs are stateless — the whole history is sent
+// with every request so the bot remembers the conversation.
+let chatHistory = [];
+
+// Floating helper line: appears after 2s, hides once chat is opened
+let tooltipShown = false;
+setTimeout(() => {
+  if (!chatPanel.classList.contains("open")) {
+    chatTooltip.classList.add("show");
+    tooltipShown = true;
+    setTimeout(() => chatTooltip.classList.remove("show"), 8000);
+  }
+}, 2000);
+
+function openChat() {
+  chatPanel.classList.add("open");
+  document.body.classList.add("chat-open");
+  chatTooltip.classList.remove("show");
+  chatInput.focus();
+}
+function closeChat() {
+  chatPanel.classList.remove("open");
+  document.body.classList.remove("chat-open");
+}
+chatToggle.addEventListener("click", () => {
+  chatPanel.classList.contains("open") ? closeChat() : openChat();
+});
+chatClose.addEventListener("click", closeChat);
+
+// Topic cards + prompt chips: clicking sends that prompt as the user's message
+document.querySelectorAll(".topic-card, .chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    chatInput.value = btn.dataset.prompt;
+    sendChat();
+  });
+});
+
+function addChatMsg(text, who) {
+  const div = document.createElement("div");
+  div.className = "chat-msg " + who;
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  // hide the intro cards once a real conversation starts
+  const intro = document.getElementById("chatIntro");
+  if (intro) intro.remove();
+
+  chatInput.value = "";
+  chatSend.disabled = true;
+  addChatMsg(text, "user");
+  chatHistory.push({ role: "user", content: text });
+
+  const typing = addChatMsg("typing...", "bot");
+  typing.classList.add("typing");
+
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: chatHistory,
+        context: window.currentAnalysisSummary || null
+      })
+    });
+    const data = await response.json();
+    typing.remove();
+    if (data.reply) {
+      addChatMsg(data.reply, "bot");
+      chatHistory.push({ role: "assistant", content: data.reply });
+    } else {
+      addChatMsg(data.error || "Something went wrong. Try again.", "bot");
+    }
+  } catch (err) {
+    typing.remove();
+    addChatMsg("Could not reach the server. Make sure the app is running.", "bot");
+  } finally {
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+}
+
+chatSend.addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
 });
 </script>
 
