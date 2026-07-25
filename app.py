@@ -23,10 +23,29 @@ from groq import Groq
 from docx import Document
 from nlp_analysis import analyze, cluster_gaps
 
+
+def count_jd_requirement_lines(jd_text):
+    """
+    Counts the JD's requirement/responsibility bullet points directly from
+    the text using code — NOT the LLM. This gives a fixed, unchangeable
+    total every time the same JD is analyzed, because it's just counting
+    lines, not asking an AI to judge or group anything.
+
+    Returns the count, or None if the JD isn't in bullet-point format
+    (so the old LLM-based counting is used as a fallback).
+    """
+    count = 0
+    for raw_line in jd_text.split("\n"):
+        line = raw_line.strip()
+        # A bullet line starts with -, •, *, or a number like "1."
+        if re.match(r"^[-•*]\s+\S", line) or re.match(r"^\d+[\.\)]\s+\S", line):
+            count += 1
+    return count if count > 0 else None
+
 # FIX 1: read the key from an environment variable instead of hardcoding it.
 # Before running:  set GROQ_API_KEY=your_new_key   (Windows CMD)
 #             or:  $env:GROQ_API_KEY="your_new_key" (PowerShell)
-API_KEY = os.environ.get("Interview_qs_groq_key")
+API_KEY = os.environ.get("interview_qs_groq_key")
 if not API_KEY:
     raise RuntimeError(
         "interview_qs_groq_key environment variable is not set. "
@@ -92,6 +111,8 @@ Every candidate term must end up in exactly one place: dismissed_candidates (cov
 Every gap in your final identified_gaps list MUST correspond to a requirement explicitly stated in the job description text. Never invent gaps from general knowledge of what similar roles usually require. If, after verification, no genuine gaps remain, output an empty identified_gaps list and skip gap questions (3a) entirely — do not manufacture gaps to fill space.
 
 You must ALSO produce a "covered_requirements" list: the distinct skills/requirements explicitly stated in the job description that the resume DOES clearly demonstrate (under any wording). Phrase each the same way you phrase gaps — short named requirements, not raw words. Together, covered_requirements + identified_gaps must account for every distinct real requirement in the job description: each requirement appears in exactly one of the two lists. The match score shown to the student is computed directly as covered ÷ (covered + gaps), so missing or duplicated requirements will distort their score — be complete and precise.
+
+GRANULARITY RULE (critical for score consistency): count requirements at the level of distinct bullet points/sentences in the job description's Responsibilities and Requirements sections. One requirement bullet = one item in covered_requirements or identified_gaps — never split a single bullet into multiple items, and never merge multiple bullets into one item. This must be consistent every time the same job description is analyzed, so the total requirement count does not vary between runs on identical input.
 
 STEP 3 — QUESTION GENERATION (only after Steps 1 and 2 are complete):
 Generate questions in this exact order:
@@ -213,7 +234,7 @@ CANDIDATE GAPS (from statistical analysis — verify each one against the resume
                 {"role": "user", "content": user_message}
             ],
             # FIX 7: lower temperature = more consistent, rule-following output
-            temperature=0.4,
+            temperature=0.2,          # lowered further for consistent scoring across identical inputs
             # FIX 4: JSON mode — the model is forced to return valid JSON
             response_format={"type": "json_object"},
         )
@@ -240,44 +261,35 @@ CANDIDATE GAPS (from statistical analysis — verify each one against the resume
               f"{gap_question_count(parsed)} gap questions — trimming (no retry, saves tokens)")
         parsed["identified_gaps"] = parsed.get("identified_gaps", [])[:gap_question_count(parsed)]
 
-    # 5. MATCH SCORE — requirement-level (final design).
-    # score = covered requirements / (covered + missing requirements)
-    # This makes the score and the gaps panel two views of the SAME lists,
-    # so they can never contradict each other again.
-    n_covered = len(parsed.get("covered_requirements", []) or [])
+    # 5. MATCH SCORE — deterministic denominator (final design).
+    # PROBLEM WE'RE FIXING: the LLM's "covered_requirements" list changes
+    # length between runs on the SAME input, because it sometimes splits a
+    # skill into two items and sometimes merges two skills into one. That
+    # made the score change on identical input, even though identified_gaps
+    # (the actual gap PANEL) stayed the same every time — proven by real
+    # tests (2 gaps both times, but 6 vs 5 "covered" items).
+    #
+    # FIX: total requirements is now counted by CODE, straight from the JD's
+    # bullet points — a fixed number that can never change between runs on
+    # the same JD text. The gap list (proven stable in testing) is the only
+    # variable. score = (fixed total - gaps) / fixed total.
+    fixed_total = count_jd_requirement_lines(job_description)
     n_gaps = len(parsed.get("identified_gaps", []) or [])
 
-    if n_covered + n_gaps > 0:
-        verified_score = round((n_covered / (n_covered + n_gaps)) * 100, 1)
+    if fixed_total and fixed_total > 0:
+        n_gaps_clamped = min(n_gaps, fixed_total)   # safety: gaps can't exceed total bullets
+        verified_score = round(((fixed_total - n_gaps_clamped) / fixed_total) * 100, 1)
     else:
-        # Fallback (LLM sent no requirement lists): word-level verified score,
-        # same math as the previous version.
-        word_matched = len(nlp["covered_terms"])
-        total_terms = word_matched + len(nlp["candidate_gaps"])
-
-        def words_of(items):
-            text = " ".join(str(t).lower() for t in (items or []))
-            return set(re.findall(r"[a-z0-9\+\#\.]+", text))
-
-        dismissed_words = words_of(parsed.get("dismissed_candidates"))
-        noise_words = words_of(parsed.get("noise_terms"))
-        gap_words = words_of(parsed.get("identified_gaps"))
-
-        dismissed = [t for t in nlp["candidate_gaps"]
-                     if t.lower() in dismissed_words and t.lower() not in gap_words]
-        noise = [t for t in nlp["candidate_gaps"]
-                 if t.lower() in noise_words
-                 and t.lower() not in dismissed_words
-                 and t.lower() not in gap_words]
-
-        effective_total = total_terms - len(noise)
-        if effective_total > 0:
-            verified_score = round(((word_matched + len(dismissed)) / effective_total) * 100, 1)
-            verified_score = min(verified_score, 100.0)
+        # JD wasn't in bullet format, so code couldn't count lines.
+        # Fall back to the LLM's own covered/gap lists (less stable, but
+        # better than nothing for free-text JDs).
+        n_covered = len(parsed.get("covered_requirements", []) or [])
+        if n_covered + n_gaps > 0:
+            verified_score = round((n_covered / (n_covered + n_gaps)) * 100, 1)
         else:
             verified_score = 0
 
-    print(f"DEBUG score: covered_reqs={n_covered} gaps={n_gaps} score={verified_score}")
+    print(f"DEBUG score: fixed_total={fixed_total} gaps={n_gaps} score={verified_score}")
 
     # 6. K-Means: group the final gaps into related categories for display.
     # Local math only, no API cost. Returns None for short lists (frontend
